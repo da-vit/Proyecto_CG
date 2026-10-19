@@ -1,10 +1,11 @@
 #pragma once
 
-struct Color  { float r, g, b; };
-struct Vec2   { int x, y; };
-struct Window { int xmin, ymin, xmax, ymax; };
+struct Color   { float rojo, verde, azul; };
+struct Punto2D { int x, y; };
+struct Ventana { int x_min, y_min, x_max, y_max; };
 
-// Crea un Color desde valores 0-255
-inline Color rgb(int r, int g, int b) {
-    return { r / 255.0f, g / 255.0f, b / 255.0f };
+// Crea un Color a partir de valores 0-255
+inline Color colorRGB(int rojo, int verde, int azul)
+{
+    return { rojo / 255.0f, verde / 255.0f, azul / 255.0f };
 }
