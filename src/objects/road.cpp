@@ -4,14 +4,13 @@
 #include "config.h"
 
 // ============================================================
-// Carretera (Integrante 2)
+// Carretera: Keidy Sharmely Cochama Mamani
 // Los objetos se GUARDAN en g_escena; Escena::renderizar() los dibuja
 // (lineas con Bresenham + recorte Cohen-Sutherland, rectangulos con scan-line).
 // Coordenadas: lienzo de 320 x 240, y = 0 es la parte de ABAJO.
 // La carretera empieza en x = -20 y termina en x = 339: se sale de la
 // ventana por ambos lados a proposito, para evidenciar el clipping.
 // ============================================================
-
 //Medidas de la carretera
 const int CARRETERA_X_INICIO = -20;
 const int CARRETERA_X_FIN = ANCHO_REJILLA + 19;   // 339
