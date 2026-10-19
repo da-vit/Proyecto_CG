@@ -4,12 +4,23 @@
 #include "framebuffer.h"
 #include "scene.h"
 
-void framebufferSizeCallback(GLFWwindow*, int w, int h) { glViewport(0, 0, w, h); }
-
-void processInput(GLFWwindow* window)
+void callbackCambioTamano(GLFWwindow*, int ancho, int alto)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    glViewport(0, 0, ancho, alto);
+}
+
+void callbackTeclado(GLFWwindow* ventana, int tecla, int, int accion, int)
+{
+    if (accion != GLFW_PRESS) return;
+
+    if (tecla == GLFW_KEY_ESCAPE)
+        glfwSetWindowShouldClose(ventana, true);
+
+    // V: mostrar/ocultar el marco de la ventana de visualizacion
+    if (tecla == GLFW_KEY_V) {
+        g_mostrarMarcoVentana = !g_mostrarMarcoVentana;
+        renderizarEscena();
+    }
 }
 
 int main()
@@ -23,31 +34,36 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(
-        WINDOW_WIDTH, WINDOW_HEIGHT, "Simulador Urbano 2D - Entrega 1",
+    GLFWwindow* ventana = glfwCreateWindow(
+        ANCHO_VENTANA, ALTO_VENTANA, "Simulador Urbano 2D - Entrega 1",
         nullptr, nullptr);
 
-    if (!window) {
+    if (!ventana) {
         std::cerr << "ERROR: No se pudo crear la ventana.\n";
         glfwTerminate();
         return -1;
     }
 
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glfwMakeContextCurrent(ventana);
+    glfwSwapInterval(1);
+    glfwSetFramebufferSizeCallback(ventana, callbackCambioTamano);
+    glfwSetKeyCallback(ventana, callbackTeclado);
+    glViewport(0, 0, ANCHO_VENTANA, ALTO_VENTANA);
 
-    renderScene();   // la escena es estatica: se calcula una sola vez
+    std::cout << "ESC: salir | V: mostrar/ocultar ventana de visualizacion\n";
 
-    while (!glfwWindowShouldClose(window)) {
-        processInput(window);
+    // La escena es estatica: se arma y se rasteriza una sola vez
+    construirEscena();
+    renderizarEscena();
+
+    while (!glfwWindowShouldClose(ventana)) {
         glClear(GL_COLOR_BUFFER_BIT);
-        presentBuffer();
-        glfwSwapBuffers(window);
+        mostrarBuffer();
+        glfwSwapBuffers(ventana);
         glfwPollEvents();
     }
 
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(ventana);
     glfwTerminate();
     return 0;
 }
