@@ -1,62 +1,66 @@
-#include "polygon.h"
-#include "framebuffer.h"
+#include "objects.h"
+#include "scene.h"
+#include "config.h"
+#include "types.h"
 
-#include <algorithm>
-#include <cmath>
-#include <vector>
+// Altura (en la rejilla) donde se apoyan los edificios; la carretera se dibuja despues y los tapa.
+static const int BASE_Y = 60;
 
-void rellenarPoligonoScanline(const std::vector<Punto2D>& puntos, Color color)
+// Dibuja una cuadricula de ventanas dentro de un edificio rectangular.
+// Cada ventana es un rectangulo (poligono relleno por scan-line) guardado en g_escena.
+static void agregarVentanas(const std::string& nombre, int x, int y, int ancho, int alto,
+                            int columnas, int filas)
 {
-    const int n = static_cast<int>(puntos.size());
-    if (n < 3) return;
+    const int anchoV = 6;
+    const int altoV  = 8;
 
-    // 1. Rango vertical del poligono
-    int yMin = puntos[0].y, yMax = puntos[0].y;
-    for (const Punto2D& p : puntos) {
-        yMin = std::min(yMin, p.y);
-        yMax = std::max(yMax, p.y);
-    }
+    const int sepX = (ancho - columnas * anchoV) / (columnas + 1);
+    const int sepY = (alto  - filas    * altoV)  / (filas + 1);
+    if (sepX < 1 || sepY < 1) return;   // no caben las ventanas
 
-    // 2. Para cada linea de barrido, calcular intersecciones con las aristas
-    for (int y = yMin; y < yMax; y++) {
-        std::vector<double> cruces;
+    const Color encendida = colorRGB(255, 235, 130);
+    const Color apagada   = colorRGB(120, 170, 210);
 
-        for (int i = 0; i < n; i++) {
-            const Punto2D& a = puntos[i];
-            const Punto2D& b = puntos[(i + 1) % n];
-
-            if (a.y == b.y) continue;                       // arista horizontal: se ignora
-
-            const int ySup = std::max(a.y, b.y);
-            const int yInf = std::min(a.y, b.y);
-
-            // Intervalo semiabierto [yInf, ySup): evita contar dos veces los vertices
-            if (y < yInf || y >= ySup) continue;
-
-            const double t = static_cast<double>(y - a.y) / (b.y - a.y);
-            cruces.push_back(a.x + t * (b.x - a.x));
-        }
-
-        // 3. Ordenar y rellenar entre pares de intersecciones
-        std::sort(cruces.begin(), cruces.end());
-        for (size_t k = 0; k + 1 < cruces.size(); k += 2) {
-            const int xIni = static_cast<int>(std::ceil(cruces[k]));
-            const int xFin = static_cast<int>(std::floor(cruces[k + 1]));
-            for (int x = xIni; x <= xFin; x++)
-                ponerPixel(x, y, color);
+    for (int f = 0; f < filas; f++) {
+        for (int c = 0; c < columnas; c++) {
+            const int vx = x + sepX + c * (anchoV + sepX);
+            const int vy = y + sepY + f * (altoV + sepY);
+            const Color col = ((f + c) % 3 == 0) ? encendida : apagada;
+            g_escena.agregarRectangulo(nombre + " - ventana", vx, vy, anchoV, altoV,
+                                       col, true, colorRGB(40, 40, 60));
         }
     }
+}
 
-    // 4. Ultima fila (y = yMax): el intervalo semiabierto la omite,
-    //    asi que se completa con las aristas horizontales y los vertices de esa fila.
-    for (int i = 0; i < n; i++) {
-        const Punto2D& a = puntos[i];
-        const Punto2D& b = puntos[(i + 1) % n];
-        if (a.y == yMax && b.y == yMax) {
-            for (int x = std::min(a.x, b.x); x <= std::max(a.x, b.x); x++)
-                ponerPixel(x, yMax, color);
-        } else if (a.y == yMax) {
-            ponerPixel(a.x, yMax, color);
-        }
-    }
+void dibujarEdificios()
+{
+    const Color negro = colorRGB(30, 30, 30);
+
+    // Edificio 1: rojo, sale parcialmente por la izquierda (prueba de recorte)
+    g_escena.agregarRectangulo("Edificio rojo", -15, BASE_Y, 50, 110,
+                               colorRGB(178, 60, 55), true, negro);
+    agregarVentanas("Edificio rojo", -15, BASE_Y, 50, 110, 3, 6);
+
+    // Edificio 2: gris azulado
+    g_escena.agregarRectangulo("Edificio gris", 45, BASE_Y, 45, 85,
+                               colorRGB(110, 120, 140), true, negro);
+    agregarVentanas("Edificio gris", 45, BASE_Y, 45, 85, 3, 4);
+
+    // Edificio 3: marron claro, el mas alto
+    g_escena.agregarRectangulo("Edificio marron", 100, BASE_Y, 50, 140,
+                               colorRGB(150, 110, 80), true, negro);
+    agregarVentanas("Edificio marron", 100, BASE_Y, 50, 140, 3, 8);
+
+    // Edificio 4: irregular (escalonado), poligono de 8 vertices
+    g_escena.agregarPoligono("Edificio escalonado",
+        { {160, BASE_Y}, {160, BASE_Y + 80}, {180, BASE_Y + 80}, {180, BASE_Y + 110},
+          {215, BASE_Y + 110}, {215, BASE_Y + 65}, {225, BASE_Y + 65}, {225, BASE_Y} },
+        colorRGB(95, 140, 110), true, negro);
+    agregarVentanas("Edificio escalonado", 160, BASE_Y, 20, 80, 2, 4);       // cuerpo bajo-izquierdo
+    agregarVentanas("Edificio escalonado", 180, BASE_Y + 65, 35, 45, 3, 2);  // torre central
+
+    // Edificio 5: azul oscuro, sale parcialmente por la derecha (prueba de recorte)
+    g_escena.agregarRectangulo("Edificio azul", 270, BASE_Y, 60, 95,
+                               colorRGB(60, 80, 130), true, negro);
+    agregarVentanas("Edificio azul", 270, BASE_Y, 60, 95, 4, 4);
 }
