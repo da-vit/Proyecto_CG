@@ -1,38 +1,46 @@
 #include "framebuffer.h"
 #include "config.h"
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <vector>
 
-static std::vector<Color> buffer(GRID_WIDTH * GRID_HEIGHT, Color{0, 0, 0});
+// Buffer propio: un Color por cada celda de la rejilla
+static std::vector<Color> bufferPixeles(ANCHO_REJILLA * ALTO_REJILLA, Color{0, 0, 0});
 
-void putPixel(int x, int y, Color c)
+// Ventana de recorte actual (por defecto, todo el lienzo)
+static Ventana ventanaRecorte = { 0, 0, ANCHO_REJILLA - 1, ALTO_REJILLA - 1 };
+
+void establecerVentanaRecorte(const Ventana& ventana)
 {
-    if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) return;
-    buffer[y * GRID_WIDTH + x] = c;
+    ventanaRecorte.x_min = std::max(0, ventana.x_min);
+    ventanaRecorte.y_min = std::max(0, ventana.y_min);
+    ventanaRecorte.x_max = std::min(ANCHO_REJILLA - 1, ventana.x_max);
+    ventanaRecorte.y_max = std::min(ALTO_REJILLA  - 1, ventana.y_max);
 }
 
-void clearBuffer(Color c)
+void ponerPixel(int x, int y, Color color)
 {
-    for (auto& p : buffer) p = c;
+    if (x < ventanaRecorte.x_min || x > ventanaRecorte.x_max ||
+        y < ventanaRecorte.y_min || y > ventanaRecorte.y_max)
+        return;
+
+    bufferPixeles[y * ANCHO_REJILLA + x] = color;
 }
 
-void presentBuffer()
+void limpiarBuffer(Color color)
 {
-    const float dx = 2.0f / GRID_WIDTH;
-    const float dy = 2.0f / GRID_HEIGHT;
+    for (auto& pixel : bufferPixeles)
+        pixel = color;
+}
 
-    glBegin(GL_QUADS);
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            const Color& c = buffer[y * GRID_WIDTH + x];
-            const float x0 = -1.0f + x * dx;
-            const float y0 = -1.0f + y * dy;
-            glColor3f(c.r, c.g, c.b);
-            glVertex2f(x0,      y0);
-            glVertex2f(x0 + dx, y0);
-            glVertex2f(x0 + dx, y0 + dy);
-            glVertex2f(x0,      y0 + dy);
-        }
-    }
-    glEnd();
+void mostrarBuffer()
+{
+    // El buffer se escala al tamano actual de la ventana
+    GLint area[4];
+    glGetIntegerv(GL_VIEWPORT, area);
+
+    glRasterPos2f(-1.0f, -1.0f);
+    glPixelZoom(static_cast<float>(area[2]) / ANCHO_REJILLA,
+                static_cast<float>(area[3]) / ALTO_REJILLA);
+    glDrawPixels(ANCHO_REJILLA, ALTO_REJILLA, GL_RGB, GL_FLOAT, bufferPixeles.data());
 }
