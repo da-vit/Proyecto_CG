@@ -22,25 +22,25 @@
 // Pinta los 8 puntos simetricos de (x,y) respecto al centro (cx,cy).
 static void plotOctants(int cx, int cy, int x, int y, Color c)
 {
-    putPixel(cx + x, cy + y, c);
-    putPixel(cx - x, cy + y, c);
-    putPixel(cx + x, cy - y, c);
-    putPixel(cx - x, cy - y, c);
-    putPixel(cx + y, cy + x, c);
-    putPixel(cx - y, cy + x, c);
-    putPixel(cx + y, cy - x, c);
-    putPixel(cx - y, cy - x, c);
+    ponerPixel(cx + x, cy + y, c);
+    ponerPixel(cx - x, cy + y, c);
+    ponerPixel(cx + x, cy - y, c);
+    ponerPixel(cx - x, cy - y, c);
+    ponerPixel(cx + y, cy + x, c);
+    ponerPixel(cx - y, cy + x, c);
+    ponerPixel(cx + y, cy - x, c);
+    ponerPixel(cx - y, cy - x, c);
 }
 
 // Segmento horizontal [xa, xb] en la fila y (para el relleno del disco).
 static void hspan(int xa, int xb, int y, Color c)
 {
-    for (int x = xa; x <= xb; x++) putPixel(x, y, c);
+    for (int x = xa; x <= xb; x++) ponerPixel(x, y, c);
 }
 
 void drawCircleMidpoint(int cx, int cy, int r, Color c)
 {
-    if (r <= 0) { putPixel(cx, cy, c); return; }
+    if (r <= 0) { ponerPixel(cx, cy, c); return; }
 
     int x = 0;
     int y = r;
@@ -62,7 +62,7 @@ void drawCircleMidpoint(int cx, int cy, int r, Color c)
 // segmentos horizontales entre puntos simetricos (cada fila del disco).
 void fillCircleMidpoint(int cx, int cy, int r, Color c)
 {
-    if (r <= 0) { putPixel(cx, cy, c); return; }
+    if (r <= 0) { ponerPixel(cx, cy, c); return; }
 
     int x = 0;
     int y = r;
