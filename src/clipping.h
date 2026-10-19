@@ -2,10 +2,10 @@
 #include "types.h"
 #include <vector>
 
-extern Window g_window;   // ventana de visualizacion
+extern Ventana g_ventana;   // ventana de visualizacion
 
 // Integrante 2: Cohen-Sutherland o Liang-Barsky
-bool clipLine(int& x0, int& y0, int& x1, int& y1, const Window& w);
+bool recortarLinea(int& x0, int& y0, int& x1, int& y1, const Ventana& v);
 
 // Integrante 5: Sutherland-Hodgman
-std::vector<Vec2> clipPolygon(const std::vector<Vec2>& pts, const Window& w);
+std::vector<Punto2D> recortarPoligono(const std::vector<Punto2D>& puntos, const Ventana& v);
