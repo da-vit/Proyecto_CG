@@ -38,7 +38,7 @@ static void hspan(int xa, int xb, int y, Color c)
     for (int x = xa; x <= xb; x++) ponerPixel(x, y, c);
 }
 
-void drawCircleMidpoint(int cx, int cy, int r, Color c)
+void dibujarCircunferenciaPuntoMedio(int cx, int cy, int r, Color c)
 {
     if (r <= 0) { ponerPixel(cx, cy, c); return; }
 
@@ -60,7 +60,7 @@ void drawCircleMidpoint(int cx, int cy, int r, Color c)
 
 // Disco: mismo recorrido del octante, pero en vez de puntos se rellenan los
 // segmentos horizontales entre puntos simetricos (cada fila del disco).
-void fillCircleMidpoint(int cx, int cy, int r, Color c)
+void rellenarCircunferenciaPuntoMedio(int cx, int cy, int r, Color c)
 {
     if (r <= 0) { ponerPixel(cx, cy, c); return; }
 
