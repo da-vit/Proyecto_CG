@@ -4,7 +4,7 @@
 
 // Ventana de visualizacion: un poco mas pequena que el lienzo (320x240),
 // asi se ve claramente que los objetos que se salen quedan recortados.
-Ventana g_ventana = { 10, 10, ANCHO_REJILLA - 11, ALTO_REJILLA - 11 };
+Ventana g_ventana = { 0, 0, ANCHO_REJILLA - 1, ALTO_REJILLA - 1 };
 
 // =====================================================================
 // Integrante 2: recorte de lineas con Cohen-Sutherland

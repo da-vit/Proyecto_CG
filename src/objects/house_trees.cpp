@@ -1,111 +1,122 @@
+// ============================================================
+// house_trees.cpp  -  Integrante 5: casa, arboles y arbustos
+//
+// Todo se dibuja sobre el pasto grande (Y_CARRETERA_SUP a
+// Y_BASE_EDIFICIOS, ver config.h). Se agrega a g_escena; el
+// relleno scan-line, los circulos de punto medio y el recorte
+// los hace Escena::renderizar().
+// ============================================================
+
 #include "objects.h"
-#include "types.h"
 #include "scene.h"
-#include <string>
-#include <vector>
+#include "config.h"
+#include "types.h"
 
-// =====================================================================
-// Integrante 5: casa y arboles
-// Estos objetos NO se dibujan aqui: se AGREGAN a g_escena.
-// Luego Escena::renderizar() (scene.cpp) los recorta contra g_ventana
-// (recortarPoligono / recortarLinea) y los dibuja con scan-line,
-// Bresenham y punto medio.
-// Coordenadas: rejilla 320 x 240, y = 0 ABAJO de la pantalla.
-// =====================================================================
+namespace {
 
-const int SUELO_Y = 60;   // borde superior de la carretera (igual que GROUND_Y del Integrante 6)
+// Altura donde se apoyan los objetos (parte baja del pasto grande,
+// un poco arriba de la pista para que no la toquen)
+const int Y_SUELO = Y_CARRETERA_SUP + 4;      // 72
 
-// ---------- Estructuras de datos ----------
-struct Casa {
-    int x, y;            // esquina inferior izquierda de las paredes
-    int ancho, alto;     // tamano de las paredes
-    int alturaTecho;     // cuanto sube la punta del techo
-    Color pared, techo, puerta, ventana, borde;
-};
-
-enum TipoCopa { COPA_TRIANGULAR, COPA_CIRCULAR };
-
-struct Arbol {
-    int x, y;                     // centro de la base del tronco
-    int anchoTronco, altoTronco;
-    TipoCopa tipo;
-    int tamCopa;                  // triangular: mitad del ancho; circular: radio
-    Color tronco, copa;
-};
-
-// ---------- Dibujo (agregar a la escena) de cada objeto ----------
-
-static void agregarCasa(const Casa& c)
+// ------------------------------------------------------------
+// Arbol de copa redonda: tronco (rectangulo) + copa formada por
+// varios circulos verdes solapados (punto medio).
+//   x        centro del arbol
+//   altura   altura del tronco
+//   radio    radio de la copa (los circulos se calculan a partir de el)
+// ------------------------------------------------------------
+void agregarArbol(int x, int altura, int radio)
 {
-    // 1) Paredes (rectangulo relleno con borde)
-    g_escena.agregarRectangulo("Casa - paredes", c.x, c.y, c.ancho, c.alto,
-                               c.pared, true, c.borde);
+    const Color tronco     = colorRGB(120, 75, 40);
+    const Color copaOscura = colorRGB(60, 140, 50);
+    const Color copaClara  = colorRGB(95, 175, 65);
+    const Color contorno   = colorRGB(35, 90, 35);
 
-    // 2) Techo triangular (sobresale 5 px a cada lado)
-    std::vector<Punto2D> techo = {
-        { c.x - 5,               c.y + c.alto },
-        { c.x + c.ancho - 1 + 5, c.y + c.alto },
-        { c.x + c.ancho / 2,     c.y + c.alto + c.alturaTecho }
-    };
-    g_escena.agregarPoligono("Casa - techo", techo, c.techo, true, c.borde);
+    // Tronco
+    g_escena.agregarRectangulo("Arbol - tronco", x - 2, Y_SUELO, 5, altura, tronco,
+                               true, colorRGB(70, 40, 20));
 
-    // 3) Puerta
-    g_escena.agregarRectangulo("Casa - puerta", c.x + 6, c.y, c.ancho / 5, c.alto * 3 / 5,
-                               c.puerta, true, c.borde);
+    // Copa: un circulo central grande y cuatro alrededor
+    const int cy = Y_SUELO + altura + radio / 2;
+    const int r2 = radio * 2 / 3;
 
-    // 4) Ventana con cruz (dos lineas de Bresenham)
-    int vx = c.x + c.ancho - 19, vy = c.y + c.alto / 2 - 4;
-    int va = 13, vh = 11;
-    g_escena.agregarRectangulo("Casa - ventana", vx, vy, va, vh, c.ventana, true, c.borde);
-    g_escena.agregarLinea("Casa - ventana cruz V", vx + va / 2, vy, vx + va / 2, vy + vh - 1, c.borde);
-    g_escena.agregarLinea("Casa - ventana cruz H", vx, vy + vh / 2, vx + va - 1, vy + vh / 2, c.borde);
+    g_escena.agregarCirculo("Arbol - copa", x - radio / 2, cy - radio / 3, r2, copaOscura, true);
+    g_escena.agregarCirculo("Arbol - copa", x + radio / 2, cy - radio / 3, r2, copaOscura, true);
+    g_escena.agregarCirculo("Arbol - copa", x,             cy + radio / 3, r2, copaOscura, true);
+    g_escena.agregarCirculo("Arbol - copa", x,             cy,             radio, copaClara, true);
+
+    // Contorno suave de la copa central
+    g_escena.agregarCirculo("Arbol - contorno", x, cy, radio, contorno, false);
 }
 
-static void agregarArbol(const Arbol& a, int numero)
+// ------------------------------------------------------------
+// Arbusto: tres circulos verdes bajos y solapados
+// ------------------------------------------------------------
+void agregarArbusto(int x, int radio)
 {
-    const std::string nombre = "Arbol " + std::to_string(numero);
-    const Color bordeCopa   = colorRGB(20, 60, 25);
-    const Color bordeTronco = colorRGB(60, 35, 15);
+    const Color verde  = colorRGB(80, 160, 55);
+    const Color oscuro = colorRGB(55, 125, 45);
 
-    // 1) Tronco
-    g_escena.agregarRectangulo(nombre + " - tronco", a.x - a.anchoTronco / 2, a.y,
-                               a.anchoTronco, a.altoTronco, a.tronco, true, bordeTronco);
+    const int cy = Y_SUELO + radio - 2;
 
-    int yTope = a.y + a.altoTronco;   // donde empieza la copa
-
-    // 2) Copa
-    if (a.tipo == COPA_TRIANGULAR) {
-        std::vector<Punto2D> copa = {
-            { a.x - a.tamCopa, yTope },
-            { a.x + a.tamCopa, yTope },
-            { a.x,             yTope + a.tamCopa * 2 }
-        };
-        g_escena.agregarPoligono(nombre + " - copa", copa, a.copa, true, bordeCopa);
-    } else {
-        int cy = yTope + a.tamCopa - 2;
-        g_escena.agregarCirculo(nombre + " - copa",  a.x, cy, a.tamCopa, a.copa, true);       // relleno
-        g_escena.agregarCirculo(nombre + " - borde", a.x, cy, a.tamCopa, bordeCopa, false);  // contorno
-    }
+    g_escena.agregarCirculo("Arbusto", x - radio,     cy, radio * 3 / 4, oscuro, true);
+    g_escena.agregarCirculo("Arbusto", x + radio,     cy, radio * 3 / 4, oscuro, true);
+    g_escena.agregarCirculo("Arbusto", x,             cy + 2, radio,     verde,  true);
 }
 
-// ---------- Funcion publica (la llama construirEscena en scene.cpp) ----------
+// ------------------------------------------------------------
+// Casa: cuerpo rectangular, techo triangular, puerta y ventana
+//   (x, y) esquina inferior izquierda
+// ------------------------------------------------------------
+void agregarCasa(int x, int y)
+{
+    const int ancho = 44;
+    const int alto  = 24;
+
+    const Color pared    = colorRGB(245, 215, 70);
+    const Color techo    = colorRGB(205, 40, 40);
+    const Color puerta   = colorRGB(120, 70, 35);
+    const Color vidrio   = colorRGB(150, 205, 240);
+    const Color contorno = colorRGB(60, 45, 30);
+
+    // Cuerpo
+    g_escena.agregarRectangulo("Casa - pared", x, y, ancho, alto, pared, true, contorno);
+
+    // Techo triangular (un poco mas ancho que la pared)
+    g_escena.agregarPoligono("Casa - techo",
+        { {x - 4, y + alto}, {x + ancho + 3, y + alto}, {x + ancho / 2, y + alto + 16} },
+        techo, true, colorRGB(110, 20, 20));
+
+    // Puerta
+    g_escena.agregarRectangulo("Casa - puerta", x + 7, y, 9, 15, puerta, true, contorno);
+
+    // Ventana con cruz
+    g_escena.agregarRectangulo("Casa - ventana", x + 25, y + 9, 12, 10, vidrio, true, contorno);
+    g_escena.agregarLinea("Casa - ventana cruz", x + 31, y + 9,  x + 31, y + 18, contorno);
+    g_escena.agregarLinea("Casa - ventana cruz", x + 25, y + 14, x + 36, y + 14, contorno);
+}
+
+} // namespace
+
+// ------------------------------------------------------------
+// Funcion publica (declarada en objects.h)
+// ------------------------------------------------------------
 void dibujarCasaYArboles()
 {
-    const Color tronco = colorRGB(110, 70, 35);
+    // Orden: lo que esta mas atras primero (arbustos), luego arboles y casa
 
-    const std::vector<Casa> casas = {
-        { 220, SUELO_Y, 42, 30, 20,
-          colorRGB(245, 215, 70), colorRGB(210, 40, 40), colorRGB(120, 70, 30),
-          colorRGB(150, 200, 240), colorRGB(40, 40, 40) }
-    };
+    // Arbustos (uno sale por el borde izquierdo: prueba de recorte)
+    agregarArbusto(2,   7);
+    agregarArbusto(150, 6);
+    agregarArbusto(205, 6);
+    agregarArbusto(318, 7);      // sale por el borde derecho
 
-    const std::vector<Arbol> arboles = {
-        {  69, SUELO_Y, 4,  6, COPA_TRIANGULAR,  8, tronco, colorRGB(40, 150, 60) },
-        { 130, SUELO_Y, 4,  6, COPA_CIRCULAR,    8, tronco, colorRGB(50, 160, 70) },
-        { 197, SUELO_Y, 6, 14, COPA_TRIANGULAR, 13, tronco, colorRGB(30, 130, 50) },
-        { 318, SUELO_Y, 6, 14, COPA_TRIANGULAR, 13, tronco, colorRGB(30, 120, 45) }  // sale de la ventana -> clipping
-    };
+    // Arboles de distintos tamanos
+    agregarArbol(35,  14, 12);
+    agregarArbol(110, 18, 14);
+    agregarArbol(180, 12, 11);
+    agregarArbol(300, 16, 13);
 
-    for (const Casa& c : casas) agregarCasa(c);
-    for (size_t i = 0; i < arboles.size(); i++) agregarArbol(arboles[i], (int)i + 1);
+    // Casa
+    agregarCasa(222, Y_SUELO);
 }

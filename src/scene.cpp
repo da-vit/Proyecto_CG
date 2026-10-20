@@ -134,11 +134,11 @@ void construirEscena()
     g_escena.limpiar();
 
     // Orden de dibujo: fondo -> frente
-    dibujarCieloYSenales();    // Integrante 6
-    dibujarEdificios();        // Integrante 4
-    dibujarCasaYArboles();     // Integrante 5
-    dibujarCarretera();        // Integrante 2
-    dibujarVehiculos();        // Integrante 3
+    dibujarCieloYSenales();    // cielo, ciudad lejana, sol, nubes
+    dibujarEdificios();        // edificios
+    dibujarCarretera();        // pasto, pista, vereda (suelo)
+    dibujarCasaYArboles();     // sobre el pasto
+    dibujarVehiculos();        // autos sobre la pista
 }
 
 void renderizarEscena()
