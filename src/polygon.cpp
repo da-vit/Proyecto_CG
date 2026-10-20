@@ -1,66 +1,92 @@
-#include "objects.h"
-#include "scene.h"
-#include "config.h"
-#include "types.h"
+// ============================================================
+// polygon.cpp  -  Integrante 4: relleno de poligonos (scan-line)
+//
+// Algoritmo:
+//   1. Para cada arista (no horizontal) se guarda: y minima,
+//      y maxima, x en la y minima y la pendiente inversa (1/m).
+//   2. Se recorre cada fila y desde y_min hasta y_max del poligono.
+//   3. En cada fila se buscan las aristas "activas" (las que la cruzan)
+//      y se calcula la x donde la cruzan.
+//   4. Se ordenan las x y se rellena por pares: (x1..x2), (x3..x4)...
+//
+// Regla para no contar dos veces un vertice compartido por dos
+// aristas: una arista cubre las filas y_min <= y < y_max
+// (incluye la fila inferior y excluye la superior).
+// ============================================================
 
-// Altura (en la rejilla) donde se apoyan los edificios; la carretera se dibuja despues y los tapa.
-static const int BASE_Y = 60;
+#include "polygon.h"
+#include "framebuffer.h"
+#include "line.h"
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
-// Dibuja una cuadricula de ventanas dentro de un edificio rectangular.
-// Cada ventana es un rectangulo (poligono relleno por scan-line) guardado en g_escena.
-static void agregarVentanas(const std::string& nombre, int x, int y, int ancho, int alto,
-                            int columnas, int filas)
+// Una arista del poligono (ya orientada de abajo hacia arriba)
+struct Arista {
+    int   yMin;        // fila donde empieza
+    int   yMax;        // fila donde termina (no se incluye)
+    float xActual;     // x donde la arista cruza la fila yMin
+    float pendienteInv; // cuanto cambia x al subir una fila (dx/dy)
+};
+
+void rellenarPoligonoScanline(const std::vector<Punto2D>& puntos, Color color)
 {
-    const int anchoV = 6;
-    const int altoV  = 8;
+    const size_t n = puntos.size();
+    if (n < 3) return;
 
-    const int sepX = (ancho - columnas * anchoV) / (columnas + 1);
-    const int sepY = (alto  - filas    * altoV)  / (filas + 1);
-    if (sepX < 1 || sepY < 1) return;   // no caben las ventanas
+    // ---- 1. Tabla de aristas (ET) ----
+    std::vector<Arista> tabla;
+    int yMinPoligono = puntos[0].y;
+    int yMaxPoligono = puntos[0].y;
 
-    const Color encendida = colorRGB(255, 235, 130);
-    const Color apagada   = colorRGB(120, 170, 210);
+    for (size_t i = 0; i < n; i++) {
+        Punto2D a = puntos[i];
+        Punto2D b = puntos[(i + 1) % n];
 
-    for (int f = 0; f < filas; f++) {
-        for (int c = 0; c < columnas; c++) {
-            const int vx = x + sepX + c * (anchoV + sepX);
-            const int vy = y + sepY + f * (altoV + sepY);
-            const Color col = ((f + c) % 3 == 0) ? encendida : apagada;
-            g_escena.agregarRectangulo(nombre + " - ventana", vx, vy, anchoV, altoV,
-                                       col, true, colorRGB(40, 40, 60));
+        yMinPoligono = std::min(yMinPoligono, a.y);
+        yMaxPoligono = std::max(yMaxPoligono, a.y);
+
+        if (a.y == b.y) continue;          // aristas horizontales: se ignoran
+        if (a.y > b.y) std::swap(a, b);    // a = extremo inferior, b = superior
+
+        Arista e;
+        e.yMin         = a.y;
+        e.yMax         = b.y;
+        e.xActual      = static_cast<float>(a.x);
+        e.pendienteInv = static_cast<float>(b.x - a.x) / static_cast<float>(b.y - a.y);
+        tabla.push_back(e);
+    }
+
+    // ---- 2. Recorrer cada fila ----
+    for (int y = yMinPoligono; y <= yMaxPoligono; y++) {
+
+        // ---- 3. Aristas activas: las que cruzan esta fila ----
+        std::vector<float> cruces;
+        for (const Arista& e : tabla) {
+            if (y >= e.yMin && y < e.yMax) {
+                // x en esta fila = x inicial + (filas recorridas) * dx/dy
+                cruces.push_back(e.xActual + (y - e.yMin) * e.pendienteInv);
+            }
+        }
+
+        // ---- 4. Ordenar y rellenar por pares ----
+        std::sort(cruces.begin(), cruces.end());
+        for (size_t k = 0; k + 1 < cruces.size(); k += 2) {
+            const int xIzq = static_cast<int>(std::ceil(cruces[k]));
+            const int xDer = static_cast<int>(std::floor(cruces[k + 1]));
+            for (int x = xIzq; x <= xDer; x++)
+                ponerPixel(x, y, color);
         }
     }
 }
 
-void dibujarEdificios()
+// Contorno del poligono: une cada vertice con el siguiente (Bresenham)
+void dibujarContornoPoligono(const std::vector<Punto2D>& puntos, Color color)
 {
-    const Color negro = colorRGB(30, 30, 30);
-
-    // Edificio 1: rojo, sale parcialmente por la izquierda (prueba de recorte)
-    g_escena.agregarRectangulo("Edificio rojo", -15, BASE_Y, 50, 110,
-                               colorRGB(178, 60, 55), true, negro);
-    agregarVentanas("Edificio rojo", -15, BASE_Y, 50, 110, 3, 6);
-
-    // Edificio 2: gris azulado
-    g_escena.agregarRectangulo("Edificio gris", 45, BASE_Y, 45, 85,
-                               colorRGB(110, 120, 140), true, negro);
-    agregarVentanas("Edificio gris", 45, BASE_Y, 45, 85, 3, 4);
-
-    // Edificio 3: marron claro, el mas alto
-    g_escena.agregarRectangulo("Edificio marron", 100, BASE_Y, 50, 140,
-                               colorRGB(150, 110, 80), true, negro);
-    agregarVentanas("Edificio marron", 100, BASE_Y, 50, 140, 3, 8);
-
-    // Edificio 4: irregular (escalonado), poligono de 8 vertices
-    g_escena.agregarPoligono("Edificio escalonado",
-        { {160, BASE_Y}, {160, BASE_Y + 80}, {180, BASE_Y + 80}, {180, BASE_Y + 110},
-          {215, BASE_Y + 110}, {215, BASE_Y + 65}, {225, BASE_Y + 65}, {225, BASE_Y} },
-        colorRGB(95, 140, 110), true, negro);
-    agregarVentanas("Edificio escalonado", 160, BASE_Y, 20, 80, 2, 4);       // cuerpo bajo-izquierdo
-    agregarVentanas("Edificio escalonado", 180, BASE_Y + 65, 35, 45, 3, 2);  // torre central
-
-    // Edificio 5: azul oscuro, sale parcialmente por la derecha (prueba de recorte)
-    g_escena.agregarRectangulo("Edificio azul", 270, BASE_Y, 60, 95,
-                               colorRGB(60, 80, 130), true, negro);
-    agregarVentanas("Edificio azul", 270, BASE_Y, 60, 95, 4, 4);
+    const size_t n = puntos.size();
+    for (size_t i = 0; i < n; i++) {
+        const Punto2D& a = puntos[i];
+        const Punto2D& b = puntos[(i + 1) % n];
+        dibujarLineaBresenham(a.x, a.y, b.x, b.y, color);
+    }
 }

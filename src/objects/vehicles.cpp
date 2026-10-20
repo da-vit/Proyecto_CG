@@ -92,8 +92,8 @@ void contornoTrapecio(int xb0, int xb1, int yb, int xt0, int xt1, int yt, Color 
 // Dos circunferencias rellenas con el algoritmo del punto medio.
 void dibujarRueda(int cx, int cy)
 {
-    fillCircleMidpoint(cx, cy, WHEEL_R,     colorRGB(25, 25, 25));
-    fillCircleMidpoint(cx, cy, WHEEL_R - 3, colorRGB(150, 150, 155));
+    rellenarCircunferenciaPuntoMedio(cx, cy, WHEEL_R,     colorRGB(25, 25, 25));
+    rellenarCircunferenciaPuntoMedio(cx, cy, WHEEL_R - 3, colorRGB(150, 150, 155));
 }
 
 // ----- vehiculos -------------------------------------------------------------
@@ -118,8 +118,8 @@ void dibujarAuto(const Car& car)
     lineaRecortada(x + 21, y + 8,  x + 21, y + 18, outline);                 // division de puertas
 
     // Faros (circulos de punto medio)
-    fillCircleMidpoint(x + 41, y + 15, 2, colorRGB(255, 240, 150));
-    fillCircleMidpoint(x + 2,  y + 15, 2, colorRGB(230, 60, 60));
+    rellenarCircunferenciaPuntoMedio(x + 41, y + 15, 2, colorRGB(255, 240, 150));
+    rellenarCircunferenciaPuntoMedio(x + 2,  y + 15, 2, colorRGB(230, 60, 60));
 
     // Ruedas
     dibujarRueda(x + 10, y + WHEEL_R);
@@ -146,7 +146,7 @@ void dibujarCamion(const Truck& t)
     rellenarTrapecio(x + 38, x + 56, y + 31, x + 38, x + 50, y + 45, t.cab);
     contornoTrapecio(x + 38, x + 56, y + 31, x + 38, x + 50, y + 45, outline);
     rellenarTrapecio(x + 42, x + 53, y + 32, x + 42, x + 49, y + 43, glass);   // ventana
-    fillCircleMidpoint(x + 55, y + 14, 2, colorRGB(255, 240, 150));              // faro
+    rellenarCircunferenciaPuntoMedio(x + 55, y + 14, 2, colorRGB(255, 240, 150));              // faro
 
     // Ruedas: dos ejes traseros juntos y uno delantero (como en la imagen)
     dibujarRueda(x + 9,  y + WHEEL_R);
@@ -156,7 +156,7 @@ void dibujarCamion(const Truck& t)
 
 } // namespace
 
-void drawVehicles()
+void dibujarVehiculos()
 {
     // Estructuras de datos con los vehiculos de la escena.
     const std::vector<Car> cars = {

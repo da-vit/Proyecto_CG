@@ -13,8 +13,8 @@
 //   - Semaforo         : poste/caja (lineas Bresenham) + 3 circulos de punto medio
 //   - Senal de PARE    : octagono relleno con scan-line (polygon.h) + texto
 //                        dibujado con lineas Bresenham
-//   - Clipping         : lineas con clipLine(g_window) y poligonos con
-//                        clipPolygon(g_window) antes de dibujarse.
+//   - Clipping         : lineas con recortarLinea(g_ventana) y poligonos con
+//                        recortarPoligono(g_ventana) antes de dibujarse.
 // Coordenadas en la grilla 320x240, Y hacia ARRIBA. Las posiciones salen de la
 // imagen de referencia del enunciado.
 // Los objetos se guardan en estructuras (vectores) y luego se recorren.
@@ -36,19 +36,19 @@ struct StopSign { int cx, cy; int poleBottomY; };
 
 void lineClipped(int x0, int y0, int x1, int y1, Color c)
 {
-    if (clipLine(x0, y0, x1, y1, g_window))
-        drawLineBresenham(x0, y0, x1, y1, c);
+    if (recortarLinea(x0, y0, x1, y1, g_ventana))
+        dibujarLineaBresenham(x0, y0, x1, y1, c);
 }
 
 void fillRect(int x0, int y0, int x1, int y1, Color c)
 {
-    if (x0 < g_window.xmin) x0 = g_window.xmin;
-    if (y0 < g_window.ymin) y0 = g_window.ymin;
-    if (x1 > g_window.xmax) x1 = g_window.xmax;
-    if (y1 > g_window.ymax) y1 = g_window.ymax;
+    if (x0 < g_ventana.x_min) x0 = g_ventana.x_min;
+    if (y0 < g_ventana.y_min) y0 = g_ventana.y_min;
+    if (x1 > g_ventana.x_max) x1 = g_ventana.x_max;
+    if (y1 > g_ventana.y_max) y1 = g_ventana.y_max;
     for (int y = y0; y <= y1; y++)
         for (int x = x0; x <= x1; x++)
-            putPixel(x, y, c);
+            ponerPixel(x, y, c);
 }
 
 void rectOutline(int x0, int y0, int x1, int y1, Color c)
@@ -61,39 +61,39 @@ void rectOutline(int x0, int y0, int x1, int y1, Color c)
 
 // Poligono relleno (scan-line, Integrante 4) con contorno, recortado antes
 // contra la ventana (Sutherland-Hodgman, Integrante 5).
-void polygonFilled(const std::vector<Vec2>& pts, Color fill, Color edge)
+void polygonFilled(const std::vector<Punto2D>& pts, Color fill, Color edge)
 {
-    std::vector<Vec2> poly = clipPolygon(pts, g_window);
+    std::vector<Punto2D> poly = recortarPoligono(pts, g_ventana);
     if (poly.size() < 3) return;
-    fillPolygonScanline(poly, fill);
-    drawPolygonOutline(poly, edge);
+    rellenarPoligonoScanline(poly, fill);
+    dibujarContornoPoligono(poly, edge);
 }
 
 // ----- sol y nubes -----------------------------------------------------------
 
 void drawSun(const Sun& s)
 {
-    fillCircleMidpoint(s.cx, s.cy, s.r, s.fill);
-    drawCircleMidpoint(s.cx, s.cy, s.r, s.edge);
+    rellenarCircunferenciaPuntoMedio(s.cx, s.cy, s.r, s.fill);
+    dibujarCircunferenciaPuntoMedio(s.cx, s.cy, s.r, s.edge);
 }
 
 void drawCloud(const Cloud& c)
 {
     // Union de circulos rellenos (punto medio) = silueta de nube.
     for (const Blob& b : c.blobs)
-        fillCircleMidpoint(c.cx + b.dx, c.cy + b.dy, b.r, c.color);
+        rellenarCircunferenciaPuntoMedio(c.cx + b.dx, c.cy + b.dy, b.r, c.color);
 }
 
 // ----- semaforo --------------------------------------------------------------
 
 void drawTrafficLight(const TrafficLight& t)
 {
-    const Color metal   = rgb(35, 35, 38);
-    const Color outline = rgb(10, 10, 12);
+    const Color metal   = colorRGB(35, 35, 38);
+    const Color outline = colorRGB(10, 10, 12);
 
     // Poste (rectangulo delgado) y base
     fillRect(t.x - 1, t.groundY, t.x + 1, t.groundY + 50, metal);
-    fillRect(t.x - 4, t.groundY, t.x + 4, t.groundY + 2, rgb(70, 110, 60));
+    fillRect(t.x - 4, t.groundY, t.x + 4, t.groundY + 2, colorRGB(70, 110, 60));
 
     // Caja del semaforo
     const int x0 = t.x - t.boxW / 2, x1 = t.x + t.boxW / 2;
@@ -106,11 +106,11 @@ void drawTrafficLight(const TrafficLight& t)
     const int step = t.boxH / 3;
     const int ry = y1 - step / 2 - 1;
     const int r = step / 2 - 1;
-    const Color lights[3] = { rgb(225, 45, 45), rgb(245, 205, 45), rgb(45, 175, 65) };
+    const Color lights[3] = { colorRGB(225, 45, 45), colorRGB(245, 205, 45), colorRGB(45, 175, 65) };
     for (int i = 0; i < 3; i++) {
         const int cy = ry - i * step;
-        fillCircleMidpoint(cx, cy, r, lights[i]);
-        drawCircleMidpoint(cx, cy, r, outline);
+        rellenarCircunferenciaPuntoMedio(cx, cy, r, lights[i]);
+        dibujarCircunferenciaPuntoMedio(cx, cy, r, outline);
     }
 }
 
@@ -130,7 +130,7 @@ void drawGlyph(const std::vector<Seg>& g, int ox, int oy, Color c)
 }
 
 // Octagono regular aproximado de "radio" k alrededor de (cx,cy).
-std::vector<Vec2> octagon(int cx, int cy, int a, int b)
+std::vector<Punto2D> octagon(int cx, int cy, int a, int b)
 {
     // a = semi-lado corto, b = semi-ancho: vertices (+-a,+-b) y (+-b,+-a)
     return { {cx + a, cy + b}, {cx + b, cy + a}, {cx + b, cy - a}, {cx + a, cy - b},
@@ -139,17 +139,17 @@ std::vector<Vec2> octagon(int cx, int cy, int a, int b)
 
 void drawStopSign(const StopSign& s)
 {
-    const Color red    = rgb(205, 35, 40);
-    const Color dark   = rgb(120, 15, 20);
-    const Color white  = rgb(250, 250, 250);
-    const Color pole   = rgb(150, 150, 155);
+    const Color red    = colorRGB(205, 35, 40);
+    const Color dark   = colorRGB(120, 15, 20);
+    const Color white  = colorRGB(250, 250, 250);
+    const Color pole   = colorRGB(150, 150, 155);
 
     // Poste gris
     fillRect(s.cx - 1, s.poleBottomY, s.cx + 1, s.cy - 12, pole);
 
     // Octagono: relleno rojo (scan-line) con borde oscuro, y aro blanco interior
     polygonFilled(octagon(s.cx, s.cy, 5, 12), red, dark);
-    drawPolygonOutline(clipPolygon(octagon(s.cx, s.cy, 4, 10), g_window), white);
+    dibujarContornoPoligono(recortarPoligono(octagon(s.cx, s.cy, 4, 10), g_ventana), white);
 
     // Texto "PARE" (4 letras de 3 px + 1 px de espacio = 15 px de ancho)
     const int ox = s.cx - 7, oy = s.cy - 2;
@@ -162,12 +162,12 @@ void drawStopSign(const StopSign& s)
 } // namespace
 
 // Integrante 6: cielo (sol, nubes) y senalizacion (semaforo, PARE).
-void drawSkyAndSigns()
+void dibujarCieloYSenales()
 {
     // Estructuras de datos con los objetos de esta parte de la escena.
-    const Sun sun = { 155, 198, 13, rgb(255, 225, 110), rgb(190, 150, 30) };
+    const Sun sun = { 155, 198, 13, colorRGB(255, 225, 110), colorRGB(190, 150, 30) };
 
-    const Color white = rgb(250, 250, 252);
+    const Color white = colorRGB(250, 250, 252);
     const std::vector<Blob> puffs = { {-11, -1, 5}, {-4, 2, 7}, {4, 3, 8}, {12, 0, 6}, {0, -2, 6} };
     const std::vector<Cloud> clouds = {
         { 93,  218, white, puffs },
