@@ -4,4 +4,3 @@
 
 void rellenarPoligonoScanline(const std::vector<Punto2D>& pts, Color c);
 void dibujarContornoPoligono(const std::vector<Punto2D>& pts, Color c);
-void rellenarPoligonoScanline(const std::vector<Punto2D>& puntos, Color color);
