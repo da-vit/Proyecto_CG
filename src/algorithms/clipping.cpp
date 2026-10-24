@@ -6,10 +6,6 @@
 // asi se ve claramente que los objetos que se salen quedan recortados.
 Ventana g_ventana = { 0, 0, ANCHO_REJILLA - 1, ALTO_REJILLA - 1 };
 
-// =====================================================================
-// Integrante 2: recorte de lineas con Cohen-Sutherland
-// =====================================================================
-
 // Codigos de region (4 bits). Recordar: aqui y=0 es ABAJO de la pantalla.
 const int DENTRO    = 0;   // 0000
 const int IZQUIERDA = 1;   // 0001  x < xmin
