@@ -138,6 +138,7 @@ void construirEscena()
     dibujarEdificios();        // edificios
     dibujarCarretera();        // pasto, pista, vereda (suelo)
     dibujarCasaYArboles();     // sobre el pasto
+    dibujarSenales();          // semaforo y PARE: despues del pasto para que no los tape
     dibujarVehiculos();        // autos sobre la pista
 }
 

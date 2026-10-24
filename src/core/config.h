@@ -17,10 +17,7 @@ const int ALTO_REJILLA  = 240;
 
 // Alturas (eje Y) de las franjas de la escena. Y hacia ARRIBA.
 //   96 a 68: pasto grande (arboles, arbustos, casa)
-//   68 a 44: carretera
-//   44 a 20: vereda (una sola, como en la referencia)
-//   20 a  0: pasto de frente
+//   68 a  0: carretera (llega hasta el borde inferior de la ventana)
 const int Y_BASE_EDIFICIOS = 96;
 const int Y_CARRETERA_SUP  = 68;
-const int Y_CARRETERA_INF  = 44;
-const int Y_VEREDA_INF     = 20;
+const int Y_CARRETERA_INF  = 0;
