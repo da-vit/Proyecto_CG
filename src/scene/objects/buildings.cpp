@@ -1,5 +1,4 @@
 // ============================================================
-// buildings.cpp  -  Integrante 4: Edificios
 //
 // Edificios con ventanales y techos de cristal, apoyados en
 // Y_BASE_EDIFICIOS (config.h). Todo se agrega a g_escena; el

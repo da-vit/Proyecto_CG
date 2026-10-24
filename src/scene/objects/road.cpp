@@ -1,6 +1,4 @@
 // ============================================================
-// road.cpp  -  Integrante 2: suelo de la escena
-//
 // De atras hacia adelante:
 //   pasto grande -> carretera (hasta el borde inferior)
 //

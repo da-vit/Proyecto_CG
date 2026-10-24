@@ -1,6 +1,4 @@
 // ============================================================
-// house_trees.cpp  -  Integrante 5: casa, arboles y arbustos
-//
 // Todo se dibuja sobre el pasto grande (Y_CARRETERA_SUP a
 // Y_BASE_EDIFICIOS, ver config.h). Se agrega a g_escena; el
 // relleno scan-line, los circulos de punto medio y el recorte

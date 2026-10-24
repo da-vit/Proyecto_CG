@@ -2,7 +2,7 @@
 #include "framebuffer.h"
 
 // ---------------------------------------------------------------------------
-// Integrante 3: circunferencia con el algoritmo del PUNTO MEDIO.
+// Circunferencia con el algoritmo del PUNTO MEDIO.
 //
 // Teoria (Sesion 4): la forma implicita es f(x,y) = x^2 + y^2 - r^2.
 //   f < 0 -> punto dentro del circulo, f = 0 -> sobre el, f > 0 -> fuera.

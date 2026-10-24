@@ -1,6 +1,4 @@
 // ============================================================
-// polygon.cpp  -  Integrante 4: relleno de poligonos (scan-line)
-//
 // Algoritmo:
 //   1. Para cada arista (no horizontal) se guarda: y minima,
 //      y maxima, x en la y minima y la pendiente inversa (1/m).
