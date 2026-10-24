@@ -10,5 +10,9 @@ find_package(glfw3 REQUIRED)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
 add_executable(Proyecto_CG ${SOURCES})
-target_include_directories(Proyecto_CG PRIVATE src)
+target_include_directories(Proyecto_CG PRIVATE
+    src
+    src/core
+    src/algorithms
+    src/scene)
 target_link_libraries(Proyecto_CG glfw OpenGL::GL)
