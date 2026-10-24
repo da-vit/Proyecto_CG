@@ -1,34 +1,32 @@
 #include "objects.h"
+#include "scene.h"
+#include "config.h"
 #include "types.h"
-#include "framebuffer.h"
-#include "line.h"
-#include "circle.h"
-#include "polygon.h"
-#include "clipping.h"
 #include <vector>
-#include <algorithm>
 
 // ---------------------------------------------------------------------------
 // Integrante 3: vehiculos (auto y camion).
-//   - Clipping: toda linea pasa por recortarLinea(g_ventana) antes de Bresenham y
-//     los rellenos se recortan contra g_ventana; los circulos se recortan en
-//     circle.cpp. Asi un vehiculo que salga de la ventana se corta bien.
-//   - Carroceria / contornos : rectangulos y lineas con Bresenham (line.h)
-//   - Ruedas, llantas, faros : circunferencias con punto medio (circle.h)
+//   - Los vehiculos se agregan a g_escena (igual que el resto de objetos);
+//     el rasterizado y el recorte contra g_ventana los hace Escena::renderizar
+//     con Bresenham, punto medio, scan-line y clipping.
+//   - Carroceria / contornos : rectangulos, poligonos y lineas (Bresenham)
+//   - Ruedas, llantas, faros : circunferencias con punto medio
 // Los vehiculos se guardan en una estructura de datos (vectores de Car/Truck)
 // y luego se recorren para dibujarlos (requisito: no dibujar con instrucciones
-// sueltas). El eje Y crece hacia ARRIBA (ver framebuffer.cpp).
+// sueltas). El eje Y crece hacia ARRIBA. El orden de insercion es el orden de
+// dibujo: carroceria, cabina, ventanas, faros y ruedas encima.
 // ---------------------------------------------------------------------------
 
 namespace {
 
 // ---------------------------------------------------------------------------
 // Medidas tomadas de la imagen de referencia, convertidas a la grilla 320x240
-// (Y hacia arriba). La carretera de la imagen va de y=0 a y~60, con la linea
-// discontinua en y~34. Las ruedas apoyan en y = WHEEL_BASE_Y (carril inferior).
-// Si Integrante 2 cambia la carretera, solo hay que tocar estas constantes.
+// (Y hacia arriba). La carretera va de Y_CARRETERA_INF a Y_CARRETERA_SUP y los
+// vehiculos van en el carril inferior: las ruedas apoyan en y = WHEEL_BASE_Y,
+// debajo de la linea central. Si Integrante 2 cambia la carretera, solo hay que
+// tocar estas constantes.
 // ---------------------------------------------------------------------------
-const int WHEEL_BASE_Y = 17;   // borde inferior de las ruedas
+const int WHEEL_BASE_Y = Y_CARRETERA_INF + 17;  // borde inferior de las ruedas
 const int WHEEL_R      = 6;
 const int CAR_X        = 92;   // auto: x = 92..136
 const int TRUCK_X      = 240;  // camion: x = 240..297
@@ -38,62 +36,12 @@ struct Truck { int x; int y; Color cargo; Color cab; };
 
 // ----- helpers de dibujo -----------------------------------------------------
 
-// Linea recortada contra la ventana (Integrante 2) y trazada con Bresenham.
-void lineaRecortada(int x0, int y0, int x1, int y1, Color c)
-{
-    if (recortarLinea(x0, y0, x1, y1, g_ventana))
-        dibujarLineaBresenham(x0, y0, x1, y1, c);
-}
-
-void rellenarRectangulo(int x0, int y0, int x1, int y1, Color c)
-{
-    if (x0 < g_ventana.x_min) x0 = g_ventana.x_min;
-    if (y0 < g_ventana.y_min) y0 = g_ventana.y_min;
-    if (x1 > g_ventana.x_max) x1 = g_ventana.x_max;
-    if (y1 > g_ventana.y_max) y1 = g_ventana.y_max;
-    for (int y = y0; y <= y1; y++)
-        for (int x = x0; x <= x1; x++)
-            ponerPixel(x, y, c);
-}
-
-// Contorno de rectangulo con 4 lineas de Bresenham.
-void contornoRectangulo(int x0, int y0, int x1, int y1, Color c)
-{
-    lineaRecortada(x0, y0, x1, y0, c);
-    lineaRecortada(x1, y0, x1, y1, c);
-    lineaRecortada(x1, y1, x0, y1, c);
-    lineaRecortada(x0, y1, x0, y0, c);
-}
-
-// Trapecio horizontal: base inferior [xb0,xb1] en yb, base superior [xt0,xt1]
-// en yt. Cada fila se interpola linealmente (relleno fila por fila).
-void rellenarTrapecio(int xb0, int xb1, int yb, int xt0, int xt1, int yt, Color c)
-{
-    const int h = yt - yb;
-    for (int y = yb; y <= yt; y++) {
-        const float t = (h == 0) ? 0.0f : float(y - yb) / h;
-        const int xa = int(xb0 + (xt0 - xb0) * t + 0.5f);
-        const int xb = int(xb1 + (xt1 - xb1) * t + 0.5f);
-        if (y < g_ventana.y_min || y > g_ventana.y_max) continue;
-        for (int x = std::max(xa, g_ventana.x_min); x <= std::min(xb, g_ventana.x_max); x++)
-            ponerPixel(x, y, c);
-    }
-}
-
-void contornoTrapecio(int xb0, int xb1, int yb, int xt0, int xt1, int yt, Color c)
-{
-    lineaRecortada(xb0, yb, xb1, yb, c);
-    lineaRecortada(xb1, yb, xt1, yt, c);
-    lineaRecortada(xt1, yt, xt0, yt, c);
-    lineaRecortada(xt0, yt, xb0, yb, c);
-}
-
 // Rueda: neumatico (disco negro) y llanta (disco gris liso), como en la imagen.
 // Dos circunferencias rellenas con el algoritmo del punto medio.
-void dibujarRueda(int cx, int cy)
+void dibujarRueda(const char* nombre, int cx, int cy)
 {
-    rellenarCircunferenciaPuntoMedio(cx, cy, WHEEL_R,     colorRGB(25, 25, 25));
-    rellenarCircunferenciaPuntoMedio(cx, cy, WHEEL_R - 3, colorRGB(150, 150, 155));
+    g_escena.agregarCirculo(nombre, cx, cy, WHEEL_R,     colorRGB(25, 25, 25), true);
+    g_escena.agregarCirculo(nombre, cx, cy, WHEEL_R - 3, colorRGB(150, 150, 155), true);
 }
 
 // ----- vehiculos -------------------------------------------------------------
@@ -105,25 +53,29 @@ void dibujarAuto(const Car& car)
     const int x = car.x, y = car.y;            // y = base de las ruedas
 
     // Carroceria (44 x 13): de y+6 a y+19
-    rellenarRectangulo(x, y + 6, x + 43, y + 19, car.body);
-    contornoRectangulo(x, y + 6, x + 43, y + 19, outline);
-    lineaRecortada(x, y + 11, x + 43, y + 11, outline);            // franja lateral
+    g_escena.agregarRectangulo("Auto - carroceria", x, y + 6, 44, 14, car.body, true, outline);
+    g_escena.agregarLinea("Auto - franja lateral", x, y + 11, x + 43, y + 11, outline);
 
     // Cabina (trapecio, y+19 .. y+36) y ventanas
-    rellenarTrapecio(x + 7, x + 36, y + 20, x + 13, x + 30, y + 36, car.body);
-    contornoTrapecio(x + 7, x + 36, y + 20, x + 13, x + 30, y + 36, outline);
-    rellenarTrapecio(x + 11, x + 20, y + 21, x + 14, x + 20, y + 34, glass);   // ventana trasera
-    rellenarTrapecio(x + 22, x + 32, y + 21, x + 22, x + 29, y + 34, glass);   // ventana delantera
-    lineaRecortada(x + 21, y + 20, x + 21, y + 36, outline);                 // parante central
-    lineaRecortada(x + 21, y + 8,  x + 21, y + 18, outline);                 // division de puertas
+    g_escena.agregarPoligono("Auto - cabina",
+        { {x + 7, y + 20}, {x + 36, y + 20}, {x + 30, y + 36}, {x + 13, y + 36} },
+        car.body, true, outline);
+    g_escena.agregarPoligono("Auto - ventana trasera",
+        { {x + 11, y + 21}, {x + 20, y + 21}, {x + 20, y + 34}, {x + 14, y + 34} },
+        glass);
+    g_escena.agregarPoligono("Auto - ventana delantera",
+        { {x + 22, y + 21}, {x + 32, y + 21}, {x + 29, y + 34}, {x + 22, y + 34} },
+        glass);
+    g_escena.agregarLinea("Auto - parante central", x + 21, y + 20, x + 21, y + 36, outline);
+    g_escena.agregarLinea("Auto - division de puertas", x + 21, y + 8, x + 21, y + 18, outline);
 
     // Faros (circulos de punto medio)
-    rellenarCircunferenciaPuntoMedio(x + 41, y + 15, 2, colorRGB(255, 240, 150));
-    rellenarCircunferenciaPuntoMedio(x + 2,  y + 15, 2, colorRGB(230, 60, 60));
+    g_escena.agregarCirculo("Auto - faro delantero", x + 41, y + 15, 2, colorRGB(255, 240, 150), true);
+    g_escena.agregarCirculo("Auto - faro trasero",   x + 2,  y + 15, 2, colorRGB(230, 60, 60), true);
 
     // Ruedas
-    dibujarRueda(x + 10, y + WHEEL_R);
-    dibujarRueda(x + 34, y + WHEEL_R);
+    dibujarRueda("Auto - rueda", x + 10, y + WHEEL_R);
+    dibujarRueda("Auto - rueda", x + 34, y + WHEEL_R);
 }
 
 void dibujarCamion(const Truck& t)
@@ -133,25 +85,25 @@ void dibujarCamion(const Truck& t)
     const int x = t.x, y = t.y;                 // y = base de las ruedas
 
     // Chasis (franja oscura bajo la caja y la cabina)
-    rellenarRectangulo(x, y + 6, x + 56, y + 10, colorRGB(55, 55, 60));
-    contornoRectangulo(x, y + 6, x + 56, y + 10, outline);
+    g_escena.agregarRectangulo("Camion - chasis", x, y + 6, 57, 5, colorRGB(55, 55, 60), true, outline);
 
     // Caja de carga (37 x 43): y+10 .. y+53
-    rellenarRectangulo(x, y + 10, x + 36, y + 53, t.cargo);
-    contornoRectangulo(x, y + 10, x + 36, y + 53, outline);
+    g_escena.agregarRectangulo("Camion - caja de carga", x, y + 10, 37, 44, t.cargo, true, outline);
 
     // Cabina: parte baja rectangular + parte alta con parabrisas inclinado
-    rellenarRectangulo(x + 38, y + 10, x + 56, y + 30, t.cab);
-    contornoRectangulo(x + 38, y + 10, x + 56, y + 30, outline);
-    rellenarTrapecio(x + 38, x + 56, y + 31, x + 38, x + 50, y + 45, t.cab);
-    contornoTrapecio(x + 38, x + 56, y + 31, x + 38, x + 50, y + 45, outline);
-    rellenarTrapecio(x + 42, x + 53, y + 32, x + 42, x + 49, y + 43, glass);   // ventana
-    rellenarCircunferenciaPuntoMedio(x + 55, y + 14, 2, colorRGB(255, 240, 150));              // faro
+    g_escena.agregarRectangulo("Camion - cabina baja", x + 38, y + 10, 19, 21, t.cab, true, outline);
+    g_escena.agregarPoligono("Camion - cabina alta",
+        { {x + 38, y + 31}, {x + 56, y + 31}, {x + 50, y + 45}, {x + 38, y + 45} },
+        t.cab, true, outline);
+    g_escena.agregarPoligono("Camion - ventana",
+        { {x + 42, y + 32}, {x + 53, y + 32}, {x + 49, y + 43}, {x + 42, y + 43} },
+        glass);
+    g_escena.agregarCirculo("Camion - faro", x + 55, y + 14, 2, colorRGB(255, 240, 150), true);
 
     // Ruedas: dos ejes traseros juntos y uno delantero (como en la imagen)
-    dibujarRueda(x + 9,  y + WHEEL_R);
-    dibujarRueda(x + 22, y + WHEEL_R);
-    dibujarRueda(x + 48, y + WHEEL_R);
+    dibujarRueda("Camion - rueda", x + 9,  y + WHEEL_R);
+    dibujarRueda("Camion - rueda", x + 22, y + WHEEL_R);
+    dibujarRueda("Camion - rueda", x + 48, y + WHEEL_R);
 }
 
 } // namespace
