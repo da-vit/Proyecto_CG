@@ -118,7 +118,7 @@ static void renderizarObjeto(const ObjetoEscena& objeto)
     }
     }
 }
-
+//recorre la lista en el orden que se lleno y dibuja cada objeto, aplicando recorte contra g_ventana.---------------------------------------------------------------------------
 void Escena::renderizar() const
 {
     for (const ObjetoEscena& objeto : objetos)
