@@ -1,5 +1,15 @@
 // ============================================================
-// Todo se dibuja sobre el pasto grande (Y_CARRETERA_SUP a
+// house_trees.cpp - Samuel Sanchez: casa, arboles y arbustos
+//
+// SEGUNDA ENTREGA - ESCALA del arbol central, respecto a la base
+// de su tronco B = (110, Y_SUELO) (punto fijo, diapositiva 1.9):
+//   M = T(B) * S(s, s) * T(-B)
+//   1) T(-B)  : lleva la base del tronco al origen
+//   2) S(s,s) : agranda o achica (escala uniforme)
+//   3) T(B)   : lo regresa a su lugar
+//   Resultado: el arbol crece sin despegarse del suelo.
+//
+// Todo se dibuja sobre el pasto (Y_CARRETERA_SUP a
 // Y_BASE_EDIFICIOS, ver config.h). Se agrega a g_escena; el
 // relleno scan-line, los circulos de punto medio y el recorte
 // los hace Escena::renderizar().
@@ -9,12 +19,13 @@
 #include "scene.h"
 #include "config.h"
 #include "types.h"
+#include "matriz.h"
+#include "animacion.h"
+#include <cstdio>
 
 namespace {
 
-// Altura donde se apoyan los objetos (parte baja del pasto grande,
-// un poco arriba de la pista para que no la toquen)
-const int Y_SUELO = Y_CARRETERA_SUP + 4;      // 72
+// Y_SUELO (altura donde se apoyan los objetos) esta en config.h
 
 // ------------------------------------------------------------
 // Arbol de copa redonda: tronco (rectangulo) + copa formada por
@@ -111,7 +122,20 @@ void dibujarCasaYArboles()
 
     // Arboles de distintos tamanos
     agregarArbol(35,  14, 12);
+    // Arbol que CRECE y se achica (escala respecto a la base del tronco)
+    const double    s = escalaArbol();
+    const Matriz3x3 M = componer({ traslacion(110, Y_SUELO), escalamiento(s, s),
+                                   traslacion(-110, -Y_SUELO) });
+    g_escena.establecerMatriz(M);
     agregarArbol(110, 18, 14);
+    g_escena.restablecerMatriz();
+
+    if (g_animacion.imprimirMatrices) {
+        imprimirMatriz("[3] ESCALA - Arbol:  M = T(110,72) * S(s,s) * T(-110,-72)", M);
+        const PuntoF tope = transformar(M, { 110, 72 + 32 });
+        std::printf("    s = %.3f | punto (110, 104) -> (%.2f, %.2f)  (la base (110,72) no se mueve)\n",
+                    s, tope.x, tope.y);
+    }
     agregarArbol(180, 12, 11);
     agregarArbol(300, 16, 13);
 

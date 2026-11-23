@@ -1,123 +1,196 @@
+// ============================================================
+// vehicles.cpp - Lurancy Chipa: vehiculos (auto y camion)
+//   Reflexion del auto: Samuel Sanchez
+//
+// PRIMERA ENTREGA
+//   - Carroceria / contornos : rectangulos, poligonos y lineas (Bresenham)
+//   - Ruedas, llantas, faros : circunferencias con punto medio
+//   - Los vehiculos se guardan en vectores de Auto y Camion y luego se
+//     recorren para dibujarlos (no son instrucciones sueltas).
+//
+// SEGUNDA ENTREGA
+//   Cada vehiculo se dibuja en coordenadas LOCALES: su esquina inferior
+//   izquierda (base de las ruedas) es el punto (0,0). Su matriz lo coloca
+//   en la escena:
+//
+//   [1] TRASLACION  : M = T(x, y)                     el vehiculo avanza
+//   [2] ROTACION    : Mrueda = M * T(c) * R(theta) * T(-c)
+//                     los rayos giran respecto al CENTRO c de cada rueda;
+//                     luego M los lleva junto con el vehiculo
+//                     (primero rota, luego se traslada)
+//   [4] REFLEXION   : Mref = T(x, y) * T(22,0) * S(-1,1) * T(-22,0)
+//                     auto reflejado respecto a su linea vertical central
+//                     (x = 22): va por el carril de arriba hacia la izquierda.
+//                     Se compara con el auto rojo original del carril de abajo.
+// ============================================================
 #include "objects.h"
 #include "scene.h"
 #include "config.h"
 #include "types.h"
+#include "matriz.h"
+#include "animacion.h"
+#include <cstdio>
 #include <vector>
-
-// ---------------------------------------------------------------------------
-// Integrante 3: vehiculos (auto y camion).
-//   - Los vehiculos se agregan a g_escena (igual que el resto de objetos);
-//     el rasterizado y el recorte contra g_ventana los hace Escena::renderizar
-//     con Bresenham, punto medio, scan-line y clipping.
-//   - Carroceria / contornos : rectangulos, poligonos y lineas (Bresenham)
-//   - Ruedas, llantas, faros : circunferencias con punto medio
-// Los vehiculos se guardan en una estructura de datos (vectores de Car/Truck)
-// y luego se recorren para dibujarlos (requisito: no dibujar con instrucciones
-// sueltas). El eje Y crece hacia ARRIBA. El orden de insercion es el orden de
-// dibujo: carroceria, cabina, ventanas, faros y ruedas encima.
-// ---------------------------------------------------------------------------
 
 namespace {
 
 // ---------------------------------------------------------------------------
-// Medidas tomadas de la imagen de referencia, convertidas a la grilla 320x240
-// (Y hacia arriba). La carretera va de Y_CARRETERA_INF a Y_CARRETERA_SUP y los
-// vehiculos van en el carril inferior: las ruedas apoyan en y = WHEEL_BASE_Y,
-// debajo de la linea central. Si Integrante 2 cambia la carretera, solo hay que
-// tocar estas constantes.
+// Medidas en la rejilla 320x240 (Y hacia arriba)
 // ---------------------------------------------------------------------------
-const int WHEEL_BASE_Y = Y_CARRETERA_INF + 17;  // borde inferior de las ruedas
-const int WHEEL_R      = 6;
-const int CAR_X        = 92;   // auto: x = 92..136
-const int TRUCK_X      = 240;  // camion: x = 240..297
+const int Y_CARRIL_ABAJO  = Y_CARRETERA_INF + 14;   // base de ruedas, carril de abajo
+const int Y_CARRIL_ARRIBA = Y_CARRETERA_INF + 37;   // base de ruedas, carril de arriba
+const int RADIO_RUEDA     = 6;
+const int ANCHO_AUTO      = 44;
 
-struct Car   { int x; int y; Color body; };      // (x,y) = esquina inf. izq. (base de ruedas)
-struct Truck { int x; int y; Color cargo; Color cab; };
+struct Auto   { double x; int y; Color carroceria; double anguloRuedas; bool reflejado; };
+struct Camion { double x; int y; Color carga; Color cabina; double anguloRuedas; };
 
-// ----- helpers de dibujo -----------------------------------------------------
+// ----- funciones auxiliares ------------------------------------------------
 
-// Rueda: neumatico (disco negro) y llanta (disco gris liso), como en la imagen.
-// Dos circunferencias rellenas con el algoritmo del punto medio.
-void dibujarRueda(const char* nombre, int cx, int cy)
+// Rueda con centro LOCAL (cx, cy):
+//   neumatico (disco negro) y llanta (disco gris): punto medio
+//   2 rayos cruzados (Bresenham) que GIRAN theta grados respecto al centro:
+//       Mrueda = Mvehiculo * T(cx,cy) * R(theta) * T(-cx,-cy)
+void dibujarRueda(const char* nombre, int cx, int cy, double theta,
+                  const Matriz3x3& Mvehiculo)
 {
-    g_escena.agregarCirculo(nombre, cx, cy, WHEEL_R,     colorRGB(25, 25, 25), true);
-    g_escena.agregarCirculo(nombre, cx, cy, WHEEL_R - 3, colorRGB(150, 150, 155), true);
+    const Color neumatico = colorRGB(25, 25, 25);
+    const Color llanta    = colorRGB(170, 170, 175);
+    const Color rayo      = colorRGB(60, 60, 66);
+    const int   rl        = RADIO_RUEDA - 2;            // radio de la llanta
+
+    // Neumatico y llanta: solo los mueve el vehiculo
+    g_escena.establecerMatriz(Mvehiculo);
+    g_escena.agregarCirculo(nombre, cx, cy, RADIO_RUEDA, neumatico, true);
+    g_escena.agregarCirculo(nombre, cx, cy, rl, llanta, true);
+
+    // Rayos: ROTACION respecto al centro de la rueda y luego el vehiculo
+    const Matriz3x3 Mrueda = componer({ Mvehiculo, traslacion(cx, cy), rotacion(theta),
+                                        traslacion(-cx, -cy) });
+    g_escena.establecerMatriz(Mrueda);
+    g_escena.agregarLinea("Rueda - rayo", cx - rl, cy, cx + rl, cy, rayo);
+    g_escena.agregarLinea("Rueda - rayo", cx, cy - rl, cx, cy + rl, rayo);
+
+    g_escena.establecerMatriz(Mvehiculo);
+    g_escena.agregarCirculo("Rueda - eje", cx, cy, 1, neumatico, true);
 }
 
-// ----- vehiculos -------------------------------------------------------------
+// ----- vehiculos (dibujados con la esquina inferior izquierda en (0,0)) ----
 
-void dibujarAuto(const Car& car)
+void dibujarAuto(const Auto& a)
 {
-    const Color outline = colorRGB(60, 10, 10);
-    const Color glass   = colorRGB(190, 215, 235);
-    const int x = car.x, y = car.y;            // y = base de las ruedas
+    const Color contorno = colorRGB(60, 10, 10);
+    const Color vidrio   = colorRGB(190, 215, 235);
 
-    // Carroceria (44 x 13): de y+6 a y+19
-    g_escena.agregarRectangulo("Auto - carroceria", x, y + 6, 44, 14, car.body, true, outline);
-    g_escena.agregarLinea("Auto - franja lateral", x, y + 11, x + 43, y + 11, outline);
+    // Matriz del auto: traslacion, y si es el reflejado, ademas la reflexion
+    Matriz3x3 M;
+    if (!a.reflejado)
+        M = traslacion(a.x, a.y);                                          // [1]
+    else
+        M = componer({ traslacion(a.x, a.y), traslacion(ANCHO_AUTO / 2, 0),
+                       reflexionEjeY(), traslacion(-ANCHO_AUTO / 2, 0) });   // [4]
+    g_escena.establecerMatriz(M);
 
-    // Cabina (trapecio, y+19 .. y+36) y ventanas
+    // Carroceria (44 x 14): de y=6 a y=19
+    g_escena.agregarRectangulo("Auto - carroceria", 0, 6, 44, 14, a.carroceria, true, contorno);
+    g_escena.agregarLinea("Auto - franja lateral", 0, 11, 43, 11, contorno);
+
+    // Cabina (trapecio, y=20 .. y=36) y ventanas
     g_escena.agregarPoligono("Auto - cabina",
-        { {x + 7, y + 20}, {x + 36, y + 20}, {x + 30, y + 36}, {x + 13, y + 36} },
-        car.body, true, outline);
+        { {7, 20}, {36, 20}, {30, 36}, {13, 36} }, a.carroceria, true, contorno);
     g_escena.agregarPoligono("Auto - ventana trasera",
-        { {x + 11, y + 21}, {x + 20, y + 21}, {x + 20, y + 34}, {x + 14, y + 34} },
-        glass);
+        { {11, 21}, {20, 21}, {20, 34}, {14, 34} }, vidrio);
     g_escena.agregarPoligono("Auto - ventana delantera",
-        { {x + 22, y + 21}, {x + 32, y + 21}, {x + 29, y + 34}, {x + 22, y + 34} },
-        glass);
-    g_escena.agregarLinea("Auto - parante central", x + 21, y + 20, x + 21, y + 36, outline);
-    g_escena.agregarLinea("Auto - division de puertas", x + 21, y + 8, x + 21, y + 18, outline);
+        { {22, 21}, {32, 21}, {29, 34}, {22, 34} }, vidrio);
+    g_escena.agregarLinea("Auto - parante central", 21, 20, 21, 36, contorno);
+    g_escena.agregarLinea("Auto - division de puertas", 21, 8, 21, 18, contorno);
 
-    // Faros (circulos de punto medio)
-    g_escena.agregarCirculo("Auto - faro delantero", x + 41, y + 15, 2, colorRGB(255, 240, 150), true);
-    g_escena.agregarCirculo("Auto - faro trasero",   x + 2,  y + 15, 2, colorRGB(230, 60, 60), true);
+    // Faros (circulos de punto medio): delantero amarillo, trasero rojo
+    g_escena.agregarCirculo("Auto - faro delantero", 41, 15, 2, colorRGB(255, 240, 150), true);
+    g_escena.agregarCirculo("Auto - faro trasero",    2, 15, 2, colorRGB(230, 60, 60), true);
 
-    // Ruedas
-    dibujarRueda("Auto - rueda", x + 10, y + WHEEL_R);
-    dibujarRueda("Auto - rueda", x + 34, y + WHEEL_R);
+    // Ruedas (con rayos que giran)
+    dibujarRueda("Auto - rueda", 10, RADIO_RUEDA, a.anguloRuedas, M);
+    dibujarRueda("Auto - rueda", 34, RADIO_RUEDA, a.anguloRuedas, M);
+
+    g_escena.restablecerMatriz();
+
+    // Evidencia en consola (tecla M)
+    if (g_animacion.imprimirMatrices) {
+        if (!a.reflejado) {
+            imprimirMatriz("[1] TRASLACION - Auto rojo:  M = T(x, y)", M);
+            const Matriz3x3 Mr = componer({ M, traslacion(10, RADIO_RUEDA), rotacion(a.anguloRuedas),
+                                            traslacion(-10, -RADIO_RUEDA) });
+            std::printf("[2] ROTACION - Rayos de la rueda trasera (theta = %.2f grados):\n"
+                        "    Mrueda = T(x,y) * T(10,6) * R(theta) * T(-10,-6)"
+                        "  (primero rota respecto al centro de la rueda, luego se traslada)\n",
+                        a.anguloRuedas);
+            imprimirMatriz("    Matriz resultante Mrueda:", Mr);
+        } else {
+            imprimirMatriz("[4] REFLEXION - Auto del carril de arriba:"
+                           "  M = T(x,y) * T(22,0) * S(-1,1) * T(-22,0)", M);
+            const PuntoF faro = transformar(M, { 41, 15 });
+            std::printf("    El faro delantero local (41, 15) queda en (%.2f, %.2f):"
+                        " ahora el auto mira a la IZQUIERDA\n", faro.x, faro.y);
+        }
+    }
 }
 
-void dibujarCamion(const Truck& t)
+void dibujarCamion(const Camion& c)
 {
-    const Color outline = colorRGB(15, 25, 50);
-    const Color glass   = colorRGB(200, 225, 245);
-    const int x = t.x, y = t.y;                 // y = base de las ruedas
+    const Color contorno = colorRGB(15, 25, 50);
+    const Color vidrio   = colorRGB(200, 225, 245);
+
+    const Matriz3x3 M = traslacion(c.x, c.y);                                // [1]
+    g_escena.establecerMatriz(M);
 
     // Chasis (franja oscura bajo la caja y la cabina)
-    g_escena.agregarRectangulo("Camion - chasis", x, y + 6, 57, 5, colorRGB(55, 55, 60), true, outline);
+    g_escena.agregarRectangulo("Camion - chasis", 0, 6, 57, 5, colorRGB(55, 55, 60), true, contorno);
 
-    // Caja de carga (37 x 43): y+10 .. y+53
-    g_escena.agregarRectangulo("Camion - caja de carga", x, y + 10, 37, 44, t.cargo, true, outline);
+    // Caja de carga (37 x 44): y=10 .. y=53
+    g_escena.agregarRectangulo("Camion - caja de carga", 0, 10, 37, 44, c.carga, true, contorno);
 
     // Cabina: parte baja rectangular + parte alta con parabrisas inclinado
-    g_escena.agregarRectangulo("Camion - cabina baja", x + 38, y + 10, 19, 21, t.cab, true, outline);
+    g_escena.agregarRectangulo("Camion - cabina baja", 38, 10, 19, 21, c.cabina, true, contorno);
     g_escena.agregarPoligono("Camion - cabina alta",
-        { {x + 38, y + 31}, {x + 56, y + 31}, {x + 50, y + 45}, {x + 38, y + 45} },
-        t.cab, true, outline);
+        { {38, 31}, {56, 31}, {50, 45}, {38, 45} }, c.cabina, true, contorno);
     g_escena.agregarPoligono("Camion - ventana",
-        { {x + 42, y + 32}, {x + 53, y + 32}, {x + 49, y + 43}, {x + 42, y + 43} },
-        glass);
-    g_escena.agregarCirculo("Camion - faro", x + 55, y + 14, 2, colorRGB(255, 240, 150), true);
+        { {42, 32}, {53, 32}, {49, 43}, {42, 43} }, vidrio);
 
-    // Ruedas: dos ejes traseros juntos y uno delantero (como en la imagen)
-    dibujarRueda("Camion - rueda", x + 9,  y + WHEEL_R);
-    dibujarRueda("Camion - rueda", x + 22, y + WHEEL_R);
-    dibujarRueda("Camion - rueda", x + 48, y + WHEEL_R);
+    // Rotulo en la caja de carga (segmentos de Bresenham)
+    const int anchoRotulo = Escena::anchoTexto("CUSCO");
+    g_escena.agregarTexto("Camion - rotulo", "CUSCO", 37 / 2 - anchoRotulo / 2, 30,
+                          colorRGB(255, 255, 255));
+
+    g_escena.agregarCirculo("Camion - faro", 55, 14, 2, colorRGB(255, 240, 150), true);
+
+    // Ruedas: dos ejes traseros juntos y uno delantero
+    dibujarRueda("Camion - rueda", 9,  RADIO_RUEDA, c.anguloRuedas, M);
+    dibujarRueda("Camion - rueda", 22, RADIO_RUEDA, c.anguloRuedas, M);
+    dibujarRueda("Camion - rueda", 48, RADIO_RUEDA, c.anguloRuedas, M);
+
+    g_escena.restablecerMatriz();
 }
 
 } // namespace
 
 void dibujarVehiculos()
 {
-    // Estructuras de datos con los vehiculos de la escena.
-    const std::vector<Car> cars = {
-        { CAR_X, WHEEL_BASE_Y, colorRGB(215, 45, 40) },                       // auto rojo
-    };
-    const std::vector<Truck> trucks = {
-        { TRUCK_X, WHEEL_BASE_Y, colorRGB(30, 80, 165), colorRGB(95, 150, 210) },  // camion azul
+    const EstadoAnimacion& anim = g_animacion;
+
+    // Estructuras de datos con los vehiculos de la escena
+    std::vector<Auto> autos;
+    if (anim.activa[REFLEXION])   // [4] auto reflejado (carril de arriba, se dibuja primero: va atras)
+        autos.push_back({ xAutoReflejado(), Y_CARRIL_ARRIBA, colorRGB(215, 45, 40),
+                          anim.anguloRuedasReflejado, true });
+    autos.push_back({ xAuto(), Y_CARRIL_ABAJO, colorRGB(215, 45, 40),          // auto rojo original
+                      anim.anguloRuedasAuto, false });
+
+    const std::vector<Camion> camiones = {
+        { xCamion(), Y_CARRIL_ABAJO, colorRGB(30, 80, 165), colorRGB(95, 150, 210),
+          anim.anguloRuedasCamion },                                         // camion azul
     };
 
-    for (const Car& c : cars)     dibujarAuto(c);
-    for (const Truck& t : trucks) dibujarCamion(t);
+    for (const Auto& a : autos)        dibujarAuto(a);
+    for (const Camion& c : camiones)   dibujarCamion(c);
 }

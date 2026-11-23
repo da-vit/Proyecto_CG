@@ -1,8 +1,11 @@
 #include "line.h"
 #include "framebuffer.h"
 #include <cstdlib>   
-//Algoritmo de Bresenham Keidy Sharmely Cochama Mamani
-//este algortimo no usa decimales ni divisiones
+// ============================================================
+// line.cpp - Keidy Cochama: lineas con el algoritmo de BRESENHAM
+// Solo usa sumas, restas y comparaciones de enteros
+// (no usa decimales ni divisiones).
+// ============================================================
 void dibujarLineaBresenham(int x0, int y0, int x1, int y1, Color color)
 {
     int dx = std::abs(x1 - x0);           //distancia horizontal (siempre positiva)
@@ -12,8 +15,7 @@ void dibujarLineaBresenham(int x0, int y0, int x1, int y1, Color color)
     int x = x0;
     int y = y0;
     if (dx >= dy) {
-        //CASOS 
-        //CASO 1: pendiente |m| <= 1 (linea mas acotada 
+                //CASO 1: pendiente |m| <= 1 (linea mas echada)
         //x avanza SIEMPRE y avanza solo a veces
         int p = 2 * dy - dx;              //parametro de decision inicial
         for (int i = 0; i <= dx; i++) {

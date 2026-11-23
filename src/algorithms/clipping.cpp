@@ -2,9 +2,60 @@
 #include "config.h"
 #include <cmath>
 
-// Ventana de visualizacion: un poco mas pequena que el lienzo (320x240),
-// asi se ve claramente que los objetos que se salen quedan recortados.
-Ventana g_ventana = { 0, 0, ANCHO_REJILLA - 1, ALTO_REJILLA - 1 };
+// ============================================================
+// clipping.cpp - Ventana de visualizacion y recorte
+//   Keidy Cochama: recorte de LINEAS con Cohen-Sutherland
+//   Samuel Sanchez: recorte de POLIGONOS con Sutherland-Hodgman
+// ============================================================
+
+// Ventana de visualizacion: un poco mas pequena que el lienzo (320x240).
+// Asi se ve claramente (zona gris + marco rojo) que los objetos que se
+// salen de ella quedan recortados.
+const Ventana VENTANA_INICIAL = { 12, 10, ANCHO_REJILLA - 13, ALTO_REJILLA - 11 };
+Ventana g_ventana = VENTANA_INICIAL;
+
+// ------------------------------------------------------------
+// Control de la ventana desde el teclado (ver main.cpp)
+// ------------------------------------------------------------
+const int TAMANO_MINIMO = 40;   // la ventana no puede ser mas chica que esto
+
+void moverVentana(int dx, int dy)
+{
+    // No dejamos que la ventana salga del lienzo
+    if (g_ventana.x_min + dx < 0 || g_ventana.x_max + dx > ANCHO_REJILLA - 1) dx = 0;
+    if (g_ventana.y_min + dy < 0 || g_ventana.y_max + dy > ALTO_REJILLA  - 1) dy = 0;
+
+    g_ventana.x_min += dx;  g_ventana.x_max += dx;
+    g_ventana.y_min += dy;  g_ventana.y_max += dy;
+}
+
+void cambiarTamanoVentana(int delta)
+{
+    Ventana nueva = { g_ventana.x_min - delta, g_ventana.y_min - delta,
+                      g_ventana.x_max + delta, g_ventana.y_max + delta };
+
+    // Limites: dentro del lienzo y con un tamano minimo
+    if (nueva.x_min < 0) nueva.x_min = 0;
+    if (nueva.y_min < 0) nueva.y_min = 0;
+    if (nueva.x_max > ANCHO_REJILLA - 1) nueva.x_max = ANCHO_REJILLA - 1;
+    if (nueva.y_max > ALTO_REJILLA  - 1) nueva.y_max = ALTO_REJILLA  - 1;
+    if (nueva.x_max - nueva.x_min < TAMANO_MINIMO ||
+        nueva.y_max - nueva.y_min < TAMANO_MINIMO) return;
+
+    g_ventana = nueva;
+}
+
+void restaurarVentana()
+{
+    g_ventana = VENTANA_INICIAL;
+}
+
+// =====================================================================
+// Keidy Cochama: recorte de lineas con Cohen-Sutherland
+// Idea: a cada extremo se le asigna un codigo de 4 bits que dice en que
+// region esta respecto a la ventana. Con esos codigos se acepta o se
+// rechaza rapido; si no, se calcula la interseccion con un borde.
+// =====================================================================
 
 // Codigos de region (4 bits). Recordar: aqui y=0 es ABAJO de la pantalla.
 const int DENTRO    = 0;   // 0000
@@ -78,7 +129,7 @@ bool recortarLinea(int& x0, int& y0, int& x1, int& y1, const Ventana& v)
 }
 
 // =====================================================================
-// Integrante 5: recorte de poligonos con Sutherland-Hodgman
+// Samuel Sanchez: recorte de poligonos con Sutherland-Hodgman
 // Idea: recortar el poligono contra UN borde de la ventana a la vez
 // (izquierdo, derecho, abajo, arriba). La salida de un borde es la
 // entrada del siguiente.

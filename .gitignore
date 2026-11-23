@@ -2,3 +2,5 @@ build/
 .vscode/
 *.o
 *:Zone.Identifier
+build/
+build/

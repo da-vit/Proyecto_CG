@@ -1,4 +1,6 @@
 // ============================================================
+// polygon.cpp - Coral Cuadros: relleno de poligonos con SCAN-LINE
+//
 // Algoritmo:
 //   1. Para cada arista (no horizontal) se guarda: y minima,
 //      y maxima, x en la y minima y la pendiente inversa (1/m).
@@ -14,7 +16,6 @@
 
 #include "polygon.h"
 #include "framebuffer.h"
-#include "line.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -75,16 +76,5 @@ void rellenarPoligonoScanline(const std::vector<Punto2D>& puntos, Color color)
             for (int x = xIzq; x <= xDer; x++)
                 ponerPixel(x, y, color);
         }
-    }
-}
-
-// Contorno del poligono: une cada vertice con el siguiente (Bresenham)
-void dibujarContornoPoligono(const std::vector<Punto2D>& puntos, Color color)
-{
-    const size_t n = puntos.size();
-    for (size_t i = 0; i < n; i++) {
-        const Punto2D& a = puntos[i];
-        const Punto2D& b = puntos[(i + 1) % n];
-        dibujarLineaBresenham(a.x, a.y, b.x, b.y, color);
     }
 }

@@ -1,3 +1,6 @@
+// ============================================================
+// circle.cpp - Lurancy Chipa: circunferencia con PUNTO MEDIO
+// ============================================================
 #include "circle.h"
 #include "framebuffer.h"
 
@@ -20,34 +23,34 @@
 // ---------------------------------------------------------------------------
 
 // Pinta los 8 puntos simetricos de (x,y) respecto al centro (cx,cy).
-static void plotOctants(int cx, int cy, int x, int y, Color c)
+static void ponerOchoPuntos(int cx, int cy, int x, int y, Color color)
 {
-    ponerPixel(cx + x, cy + y, c);
-    ponerPixel(cx - x, cy + y, c);
-    ponerPixel(cx + x, cy - y, c);
-    ponerPixel(cx - x, cy - y, c);
-    ponerPixel(cx + y, cy + x, c);
-    ponerPixel(cx - y, cy + x, c);
-    ponerPixel(cx + y, cy - x, c);
-    ponerPixel(cx - y, cy - x, c);
+    ponerPixel(cx + x, cy + y, color);
+    ponerPixel(cx - x, cy + y, color);
+    ponerPixel(cx + x, cy - y, color);
+    ponerPixel(cx - x, cy - y, color);
+    ponerPixel(cx + y, cy + x, color);
+    ponerPixel(cx - y, cy + x, color);
+    ponerPixel(cx + y, cy - x, color);
+    ponerPixel(cx - y, cy - x, color);
 }
 
 // Segmento horizontal [xa, xb] en la fila y (para el relleno del disco).
-static void hspan(int xa, int xb, int y, Color c)
+static void lineaHorizontal(int xa, int xb, int y, Color color)
 {
-    for (int x = xa; x <= xb; x++) ponerPixel(x, y, c);
+    for (int x = xa; x <= xb; x++) ponerPixel(x, y, color);
 }
 
-void dibujarCircunferenciaPuntoMedio(int cx, int cy, int r, Color c)
+void dibujarCircunferenciaPuntoMedio(int cx, int cy, int radio, Color color)
 {
-    if (r <= 0) { ponerPixel(cx, cy, c); return; }
+    if (radio <= 0) { ponerPixel(cx, cy, color); return; }
 
     int x = 0;
-    int y = r;
-    int d = 1 - r;               // d0 = 5/4 - r  (version entera)
+    int y = radio;
+    int d = 1 - radio;               // d0 = 5/4 - r  (version entera)
 
     while (x <= y) {
-        plotOctants(cx, cy, x, y, c);
+        ponerOchoPuntos(cx, cy, x, y, color);
         if (d < 0) {
             d += 2 * x + 3;      // se elige p1 = (x+1, y)
         } else {
@@ -60,19 +63,19 @@ void dibujarCircunferenciaPuntoMedio(int cx, int cy, int r, Color c)
 
 // Disco: mismo recorrido del octante, pero en vez de puntos se rellenan los
 // segmentos horizontales entre puntos simetricos (cada fila del disco).
-void rellenarCircunferenciaPuntoMedio(int cx, int cy, int r, Color c)
+void rellenarCircunferenciaPuntoMedio(int cx, int cy, int radio, Color color)
 {
-    if (r <= 0) { ponerPixel(cx, cy, c); return; }
+    if (radio <= 0) { ponerPixel(cx, cy, color); return; }
 
     int x = 0;
-    int y = r;
-    int d = 1 - r;
+    int y = radio;
+    int d = 1 - radio;
 
     while (x <= y) {
-        hspan(cx - x, cx + x, cy + y, c);   // filas cerca de los polos
-        hspan(cx - x, cx + x, cy - y, c);
-        hspan(cx - y, cx + y, cy + x, c);   // filas cerca del ecuador
-        hspan(cx - y, cx + y, cy - x, c);
+        lineaHorizontal(cx - x, cx + x, cy + y, color);   // filas cerca de los polos
+        lineaHorizontal(cx - x, cx + x, cy - y, color);
+        lineaHorizontal(cx - y, cx + y, cy + x, color);   // filas cerca del ecuador
+        lineaHorizontal(cx - y, cx + y, cy - x, color);
         if (d < 0) {
             d += 2 * x + 3;
         } else {

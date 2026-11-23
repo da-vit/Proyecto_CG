@@ -16,3 +16,7 @@ target_include_directories(Proyecto_CG PRIVATE
     src/algorithms
     src/scene)
 target_link_libraries(Proyecto_CG glfw OpenGL::GL)
+
+# Pruebas de las matrices (no necesitan ventana grafica)
+add_executable(test_matrices tests/test_matrices.cpp src/core/matriz.cpp)
+target_include_directories(test_matrices PRIVATE src/core)
