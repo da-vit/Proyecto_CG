@@ -1,7 +1,7 @@
 #include "line.h"
 #include "framebuffer.h"
 #include <cstdlib>   
-//Algoritmo de Bresenham Keidy Sharmely Cochama Mamani
+//Algoritmo de Bresenham Keidy Sharmely Cochama Mamani-242104
 //este algortimo no usa decimales ni divisiones
 void dibujarLineaBresenham(int x0, int y0, int x1, int y1, Color color)
 {
@@ -45,3 +45,4 @@ void dibujarLineaBresenham(int x0, int y0, int x1, int y1, Color color)
         }
     }
 }
+
