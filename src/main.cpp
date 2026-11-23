@@ -53,6 +53,7 @@ int main()
     std::cout << "ESC: salir | V: mostrar/ocultar ventana de visualizacion\n";
 
     // La escena es estatica: se arma y se rasteriza una sola vez
+    //holi
     construirEscena();
     renderizarEscena();
 
